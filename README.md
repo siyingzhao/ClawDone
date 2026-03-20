@@ -1,43 +1,87 @@
 # PocketClaw
 
-PocketClaw 是一个面向手机端的远程控制面板：
+PocketClaw 是一个面向手机端的多目标 SSH 控制台：
 
-- 在手机上配置 SSH 地址、用户名、密码 / key
+- 在手机上配置多个 SSH 目标
 - 连接到远程 Linux 服务器
-- 读取服务器上 `tmux` 里的 session / window / pane
+- 读取服务器上 `tmux` 里的 `session / window / pane`
 - 把 pane 当成独立的 Codex / vibe agent 线程管理
-- 给每个 agent pane 起本地别名
+- 给每个 agent pane 起本地 alias
 - 用手机浏览器本地语音转文字，把命令发送给对应 agent
+- 用一个面板同时管理多台机器上的多个 agent
 
-这次实现已经从“只控制本机 tmux”升级为“通过 SSH 控制远程 tmux agent”。
+项目的核心链路是：
 
-## 已实现能力
+```text
+Mobile Browser
+  -> PocketClaw Web UI
+  -> PocketClaw service
+  -> SSH
+  -> remote tmux pane
+  -> Codex / vibe agent
+```
 
-- 手机端保存多个 SSH Profile
-- Profile 字段包含：别名、主机、端口、用户名、密码、SSH key 路径、tmux 路径
+## 前端风格声明
+
+- `PocketClaw` 内置 Web UI（`pocketclaw/html.py`）的视觉与交互样式参考了 `shadcn/ui` 的设计语言与组件规范。
+- 参考项目：`shadcn-ui/ui`：<https://github.com/shadcn-ui/ui>（数据快照：2026-03-19，110,077 stars）。
+- 当前实现保持“零前端构建依赖”（纯 HTML/CSS/JS），但采用了接近 `shadcn` 的 token、按钮变体、输入焦点态和卡片体系。
+
+## 当前已实现功能
+
+### 多 SSH 目标控制
+
+- 保存多个 SSH Target
+- Target 字段包含：名称、分组、标签、收藏状态、主机、端口、用户名、密码、SSH key 路径、tmux 路径、备注
+- Dashboard 汇总所有目标的在线状态
+- 显示每个目标的 session / window / pane 数量
+- 支持收藏目标优先显示
+- 支持目标分组和标签
+
+### tmux / agent 管理
+
 - 远程列出 `tmux session / window / pane`
 - 把 `pane` 作为 agent 线程目标进行控制
 - 给目标 pane 保存本地 alias，例如 `backend-agent`
-- 语音转文字在手机浏览器本地完成
-- 文本命令通过服务端 SSH 发到目标机器的 tmux pane
-- 支持 `Ctrl+C`
-- 支持查看目标 pane 最近输出
-- 支持访问 token
-- 仍保留本地 tmux CLI 子命令，便于调试
+- 查看目标 pane 最近输出
+- 向 pane 发送命令
+- 向 pane 发送 `Ctrl+C`
 
-## 目录
+### 手机端输入体验
 
-- `pocketclaw/app.py:1`：Web UI、SSH 配置存储、远程 tmux 控制、CLI
-- `pocketclaw/__main__.py:1`：`python -m pocketclaw` 入口
-- `tests/test_app.py:1`：tmux、本地配置、远程 snapshot、鉴权测试
-- `pyproject.toml:1`：项目依赖与入口
+- 浏览器本地语音转文字
+- 命令模板（全局或目标级）
+- 最近命令历史
+- 一键重用模板或历史命令
 
-## 安装
+### 部署 / 开发体验
+
+- `python -m pocketclaw serve` 启动服务
+- Docker 容器启动
+- `docker compose` 启动
+- Dev Container 已接入
+- 保留本地 tmux CLI 子命令，便于调试
+
+## 目录结构
+
+- `pocketclaw/html.py:1`：手机端 Web UI
+- `pocketclaw/web.py:1`：HTTP API 与请求处理
+- `pocketclaw/store.py:1`：SSH Target、alias、模板、历史存储
+- `pocketclaw/remote.py:1`：SSH 执行与远程 tmux 控制
+- `pocketclaw/local_tmux.py:1`：本地 tmux CLI 辅助
+- `pocketclaw/cli.py:1`：CLI 入口
+- `tests/test_app.py:1`：单元测试与集成测试
+- `Dockerfile:1`：运行镜像与 devcontainer 基础镜像
+- `.devcontainer/devcontainer.json:1`：开发容器配置
+
+## 本地安装
 
 建议先安装为可编辑模式：
 
 ```bash
-python3 -m pip install -e .
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install -e .
 ```
 
 这会安装 `paramiko`，用于服务端发起 SSH 连接。
@@ -45,15 +89,28 @@ python3 -m pip install -e .
 ## 启动服务
 
 ```bash
-python3 -m pocketclaw serve --host 0.0.0.0 --port 8787 --token your-secret
+python -m pocketclaw serve --host 0.0.0.0 --port 8787 --token your-secret
 ```
 
 也可以指定配置文件保存位置：
 
 ```bash
-python3 -m pocketclaw serve --host 0.0.0.0 --port 8787 \
+python -m pocketclaw serve --host 0.0.0.0 --port 8787 \
   --token your-secret \
   --store-path ~/.pocketclaw/profiles.json
+```
+
+推荐在生产环境显式设置 SSH 安全与稳定参数：
+
+```bash
+python -m pocketclaw serve --host 0.0.0.0 --port 8787 \
+  --token your-secret \
+  --host-key-policy strict \
+  --ssh-timeout 10 \
+  --ssh-command-timeout 15 \
+  --ssh-retries 1 \
+  --ssh-retry-backoff-ms 300 \
+  --dashboard-workers 8
 ```
 
 启动后在手机浏览器打开：
@@ -64,20 +121,36 @@ http://<你的服务器IP>:8787
 
 ## 手机端使用流程
 
-### 1. 新建 SSH Profile
+### 1. 新建 SSH Target
 
 在页面里填写：
 
-- Profile 名称，例如 `office-server`
-- SSH Host，例如 `192.168.1.20`
-- SSH Port，例如 `22`
+- Target 名称，例如 `gpu-box`
+- Group，例如 `work`
+- Tags，例如 `gpu, research`
+- Host，例如 `192.168.1.20`
+- Port，例如 `22`
 - Username，例如 `ubuntu`
 - Password，或者填写 SSH key path
 - tmux binary，默认 `tmux`
+- Host key policy（可选：继承服务默认 / strict / accept-new / insecure）
+- SSH timeout / retries（可选，0 代表继承服务默认）
+- Description，可选备注
+- Favorite，可选收藏
 
-点击 `Save profile` 保存，点击 `Test SSH` 测试是否可连通。
+点击 `Save target` 保存，点击 `Test SSH` 测试连通性。
 
-### 2. 选择远程 agent
+### 2. 查看 Dashboard
+
+首页会显示每个目标：
+
+- 在线 / 离线状态
+- session 数量
+- pane 数量
+- 分组、标签、备注
+- 收藏目标优先显示
+
+### 3. 选择 agent pane
 
 保存成功后，页面会自动拉取远程：
 
@@ -103,7 +176,15 @@ http://<你的服务器IP>:8787
 - `frontend-codex`
 - `release-bot`
 
-### 3. 本地语音转文字并发送
+### 4. 使用模板和历史命令
+
+你可以：
+
+- 保存全局模板
+- 保存某个 target 专属模板
+- 复用最近发送过的命令
+
+### 5. 本地语音转文字并发送
 
 - 点击 `Start voice`
 - 手机浏览器本地完成语音转文字
@@ -117,7 +198,7 @@ tmux send-keys -t codex:0.0 -l 'your command'
 tmux send-keys -t codex:0.0 Enter
 ```
 
-### 4. 中断或查看输出
+### 6. 中断或查看输出
 
 - `Send Ctrl+C`：向目标 pane 发送中断
 - `Refresh output`：查看最近 pane 输出
@@ -140,6 +221,63 @@ codex
 
 或者在同一个窗口里拆 pane。
 
+## Docker 启动
+
+### 直接构建并运行
+
+```bash
+docker build -t pocketclaw .
+docker run --rm -p 8787:8787 \
+  -e POCKETCLAW_TOKEN=your-secret \
+  -v pocketclaw-data:/data \
+  pocketclaw
+
+# 如果 Docker Hub 拉取慢，可以换基础镜像
+docker build -t pocketclaw \
+  --build-arg PYTHON_IMAGE=<your-python-base-image> \
+  .
+```
+
+默认行为：
+
+- 自动执行 `python -m pocketclaw serve`
+- 监听 `0.0.0.0:8787`
+- 将配置持久化到容器内 `/data/profiles.json`
+- 镜像已带 `HEALTHCHECK`
+
+### 使用 Compose
+
+```bash
+cp .env.example .env
+# 按需修改 POCKETCLAW_TOKEN / POCKETCLAW_PORT / PYTHON_IMAGE
+docker compose up --build -d
+```
+
+停止：
+
+```bash
+docker compose down
+```
+
+`.env.example:1` 提供了常用容器环境变量示例。
+
+## Dev Container
+
+仓库已经附带 `.devcontainer/devcontainer.json:1`，可直接在 VS Code / Cursor 里使用 `Reopen in Container`。
+
+Devcontainer 特点：
+
+- 复用项目根目录 `Dockerfile` 的 `devcontainer` target
+- 自动执行 `python -m pip install -e .`
+- 自动转发 `8787` 端口
+- 内置 `tmux`、`openssh-client`、`git`
+
+如果你想在容器里直接启动服务：
+
+```bash
+python -m pocketclaw serve --host 0.0.0.0 --port 8787 --token your-secret
+```
+
 ## CLI 用法
 
 这些 CLI 子命令仍然针对 PocketClaw 所在机器本地的 tmux，适合调试：
@@ -147,19 +285,19 @@ codex
 ### 列出本地 tmux 会话
 
 ```bash
-python3 -m pocketclaw list-sessions
+python -m pocketclaw list-sessions
 ```
 
 ### 向本地 tmux 会话发命令
 
 ```bash
-python3 -m pocketclaw send --session codex --command "run tests"
+python -m pocketclaw send --session codex --command "run tests"
 ```
 
 ### 查看本地 tmux 输出
 
 ```bash
-python3 -m pocketclaw capture --session codex --lines 80
+python -m pocketclaw capture --session codex --lines 80
 ```
 
 ## 配置文件
@@ -172,14 +310,16 @@ python3 -m pocketclaw capture --session codex --lines 80
 
 其中会包含：
 
-- SSH 主机信息
-- 用户名
-- 密码（如果你填写了）
+- SSH Target 配置
 - pane alias 映射
+- 命令模板
+- 最近命令历史
 
 ## 安全说明
 
 - 当前版本会把 SSH 密码保存在 PocketClaw 服务器本地 JSON 文件中
+- 默认使用 `strict` Host Key 校验策略（依赖 `known_hosts`）
+- 可切换为 `accept-new`（首次信任并写入）或 `insecure`（不校验，不推荐）
 - 适合内网、自托管、受信机器
 - 更推荐用 SSH key，并把 PocketClaw 放在 Tailscale / WireGuard / 局域网 / SSH 隧道后面
 - 如果开放到公网，请至少开启 `--token`，并最好再加 HTTPS 反向代理
@@ -190,11 +330,9 @@ python3 -m pocketclaw capture --session codex --lines 80
 python3 -m unittest discover -s tests -v
 ```
 
-## 下一步可扩展
+## 下一步可继续扩展
 
-- 多服务器分组
-- 历史命令模板
-- 一键创建 tmux session / window / pane
 - WebSocket 实时日志流
-- Host key 校验策略
+- 一键创建 tmux session / window / pane
 - 使用系统 Keychain / Secret Store 保存 SSH 密码
+- 更像聊天应用的流式对话界面

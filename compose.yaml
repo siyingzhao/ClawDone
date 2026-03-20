@@ -1,0 +1,27 @@
+services:
+  pocketclaw:
+    build:
+      context: .
+      target: runtime
+      args:
+        PYTHON_IMAGE: ${PYTHON_IMAGE:-python:3.13-slim}
+    image: pocketclaw:latest
+    ports:
+      - "${POCKETCLAW_PORT:-8787}:8787"
+    environment:
+      POCKETCLAW_HOST: 0.0.0.0
+      POCKETCLAW_PORT: 8787
+      POCKETCLAW_STORE: /data/profiles.json
+      POCKETCLAW_TOKEN: ${POCKETCLAW_TOKEN:-}
+      POCKETCLAW_HOST_KEY_POLICY: ${POCKETCLAW_HOST_KEY_POLICY:-strict}
+      POCKETCLAW_SSH_TIMEOUT: ${POCKETCLAW_SSH_TIMEOUT:-10}
+      POCKETCLAW_SSH_COMMAND_TIMEOUT: ${POCKETCLAW_SSH_COMMAND_TIMEOUT:-15}
+      POCKETCLAW_SSH_RETRIES: ${POCKETCLAW_SSH_RETRIES:-0}
+      POCKETCLAW_SSH_RETRY_BACKOFF_MS: ${POCKETCLAW_SSH_RETRY_BACKOFF_MS:-250}
+      POCKETCLAW_DASHBOARD_WORKERS: ${POCKETCLAW_DASHBOARD_WORKERS:-6}
+    volumes:
+      - pocketclaw-data:/data
+    restart: unless-stopped
+
+volumes:
+  pocketclaw-data:

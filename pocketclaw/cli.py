@@ -21,6 +21,33 @@ def build_parser() -> argparse.ArgumentParser:
     serve_parser.add_argument("--port", type=int, default=int(os.getenv("POCKETCLAW_PORT", "8787")))
     serve_parser.add_argument("--token", default=os.getenv("POCKETCLAW_TOKEN"), help="optional bearer token")
     serve_parser.add_argument("--store-path", default=os.getenv("POCKETCLAW_STORE", os.path.expanduser("~/.pocketclaw/profiles.json")), help="path to persisted SSH profiles")
+    serve_parser.add_argument("--ssh-timeout", type=int, default=int(os.getenv("POCKETCLAW_SSH_TIMEOUT", "10")), help="default SSH connect timeout in seconds")
+    serve_parser.add_argument("--ssh-command-timeout", type=int, default=int(os.getenv("POCKETCLAW_SSH_COMMAND_TIMEOUT", "15")), help="default SSH remote command timeout in seconds")
+    serve_parser.add_argument("--ssh-retries", type=int, default=int(os.getenv("POCKETCLAW_SSH_RETRIES", "0")), help="default SSH retry count for failed connections")
+    serve_parser.add_argument("--ssh-retry-backoff-ms", type=int, default=int(os.getenv("POCKETCLAW_SSH_RETRY_BACKOFF_MS", "250")), help="backoff delay between SSH retries in milliseconds")
+    serve_parser.add_argument("--dashboard-workers", type=int, default=int(os.getenv("POCKETCLAW_DASHBOARD_WORKERS", "6")), help="parallel workers used for dashboard target inspection")
+    serve_parser.add_argument(
+        "--risk-policy",
+        default=os.getenv("POCKETCLAW_RISK_POLICY", "confirm"),
+        choices=["allow", "confirm", "deny"],
+        help="dangerous command policy",
+    )
+    serve_parser.add_argument(
+        "--rbac-tokens-json",
+        default=os.getenv("POCKETCLAW_RBAC_TOKENS", ""),
+        help='optional JSON object mapping token to role, e.g. {"admin-token":"admin","viewer-token":"viewer"}',
+    )
+    serve_parser.add_argument(
+        "--host-key-policy",
+        default=os.getenv("POCKETCLAW_HOST_KEY_POLICY", "strict"),
+        choices=["strict", "accept-new", "insecure"],
+        help="default SSH host key policy",
+    )
+    serve_parser.add_argument(
+        "--known-hosts-file",
+        default=os.getenv("POCKETCLAW_KNOWN_HOSTS_FILE", "~/.ssh/known_hosts"),
+        help="known_hosts file used by strict/accept-new policies",
+    )
 
     list_parser = subparsers.add_parser("list-sessions", help="list available local tmux sessions")
     list_parser.add_argument("--json", action="store_true", help="output JSON")
@@ -46,12 +73,30 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         if args.subcommand == "serve":
+            rbac_tokens: dict[str, str] = {}
+            if args.rbac_tokens_json:
+                try:
+                    decoded = json.loads(args.rbac_tokens_json)
+                except json.JSONDecodeError as exc:
+                    raise ValueError("invalid --rbac-tokens-json") from exc
+                if not isinstance(decoded, dict):
+                    raise ValueError("--rbac-tokens-json must be a JSON object")
+                rbac_tokens = {str(k): str(v) for k, v in decoded.items()}
             config = {
                 "host": args.host,
                 "port": args.port,
                 "token": args.token,
+                "rbac_tokens": rbac_tokens,
                 "tmux_bin": args.tmux_bin,
                 "store_path": args.store_path,
+                "ssh_timeout": args.ssh_timeout,
+                "ssh_command_timeout": args.ssh_command_timeout,
+                "ssh_retries": args.ssh_retries,
+                "ssh_retry_backoff_ms": args.ssh_retry_backoff_ms,
+                "dashboard_workers": args.dashboard_workers,
+                "risk_policy": args.risk_policy,
+                "host_key_policy": args.host_key_policy,
+                "known_hosts_file": args.known_hosts_file,
             }
             server = create_server(config=config, tmux_client=tmux)
             token_hint = "enabled" if config["token"] else "disabled"

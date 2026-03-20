@@ -1,0 +1,23 @@
+{
+  "name": "PocketClaw",
+  "build": {
+    "dockerfile": "../Dockerfile",
+    "context": "..",
+    "target": "devcontainer"
+  },
+  "workspaceFolder": "/workspaces/PocketClaw",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/PocketClaw,type=bind",
+  "forwardPorts": [8787],
+  "postCreateCommand": "python -m pip install -e .",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python"
+      },
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance"
+      ]
+    }
+  }
+}
