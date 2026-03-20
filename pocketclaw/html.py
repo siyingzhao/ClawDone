@@ -277,6 +277,37 @@ INDEX_HTML = """<!doctype html>
       line-height: 1.5;
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
     }
+    details.fold {
+      border: 1px dashed var(--border);
+      border-radius: var(--radius);
+      background: rgba(11, 18, 34, 0.5);
+      padding: 10px 12px;
+    }
+    details.fold > summary {
+      cursor: pointer;
+      font-weight: 600;
+      color: var(--foreground);
+      list-style: none;
+      user-select: none;
+    }
+    details.fold > summary::-webkit-details-marker {
+      display: none;
+    }
+    details.fold > summary::after {
+      content: "Show";
+      float: right;
+      color: var(--muted-foreground);
+      font-size: 0.78rem;
+      font-weight: 500;
+    }
+    details.fold[open] > summary::after {
+      content: "Hide";
+    }
+    .fold-body {
+      margin-top: 10px;
+      display: grid;
+      gap: 10px;
+    }
     @media (max-width: 900px) {
       .main-grid, .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
       .row-inline {
@@ -338,91 +369,30 @@ INDEX_HTML = """<!doctype html>
         </section>
 
         <section class="card grid">
-          <div class="section-title"><h2>Target Profile</h2><span class="hint">Passwords stay server-side if left blank on edits</span></div>
+          <div class="section-title"><h2>Target Profile</h2><span class="hint">Quick setup: name + host + username + auth</span></div>
           <div class="grid-3">
             <div>
               <label for="profileName">Name</label>
               <input id="profileName" placeholder="gpu-box">
             </div>
             <div>
-              <label for="profileGroup">Group</label>
-              <input id="profileGroup" placeholder="work">
-            </div>
-            <div>
-              <label for="profileTags">Tags</label>
-              <input id="profileTags" placeholder="gpu, research">
-            </div>
-          </div>
-          <div class="grid-3">
-            <div>
               <label for="host">SSH host / IP</label>
               <input id="host" placeholder="192.168.1.20">
-            </div>
-            <div>
-              <label for="port">SSH port</label>
-              <input id="port" type="number" value="22">
             </div>
             <div>
               <label for="username">SSH username</label>
               <input id="username" placeholder="ubuntu">
             </div>
           </div>
-          <div class="grid-3">
+          <div class="grid-2">
             <div>
-              <label for="password">SSH password</label>
+              <label for="password">SSH password (optional)</label>
               <input id="password" type="password" placeholder="Leave blank to keep existing password">
             </div>
             <div>
-              <label for="passwordRef">Password ref (vault)</label>
-              <input id="passwordRef" placeholder="env:POCKETCLAW_OFFICE_PWD or file:~/.secrets/office.pwd">
-            </div>
-            <div>
-              <label for="keyFilename">SSH key path</label>
+              <label for="keyFilename">SSH key path (optional)</label>
               <input id="keyFilename" placeholder="~/.ssh/id_ed25519">
             </div>
-          </div>
-          <div class="grid-2">
-            <div>
-              <label for="tmuxBin">tmux binary</label>
-              <input id="tmuxBin" value="tmux">
-            </div>
-            <div>
-              <label for="profileDescription">Description</label>
-              <input id="profileDescription" placeholder="Research box with multiple Codex agents">
-            </div>
-          </div>
-          <div class="grid-3">
-            <div>
-              <label for="hostKeyPolicy">Host key policy</label>
-              <select id="hostKeyPolicy">
-                <option value="">Inherit server default</option>
-                <option value="strict">strict (verify known_hosts)</option>
-                <option value="accept-new">accept-new (trust first use)</option>
-                <option value="insecure">insecure (skip verification)</option>
-              </select>
-            </div>
-            <div>
-              <label for="sshTimeout">SSH connect timeout (sec)</label>
-              <input id="sshTimeout" type="number" min="0" placeholder="0 = inherit">
-            </div>
-            <div>
-              <label for="sshCommandTimeout">SSH command timeout (sec)</label>
-              <input id="sshCommandTimeout" type="number" min="0" placeholder="0 = inherit">
-            </div>
-          </div>
-          <div class="grid-2">
-            <div>
-              <label for="sshRetries">SSH retries</label>
-              <input id="sshRetries" type="number" min="0" placeholder="0 = no retry">
-            </div>
-            <div>
-              <label for="sshRetryBackoffMs">Retry backoff (ms)</label>
-              <input id="sshRetryBackoffMs" type="number" min="0" placeholder="250">
-            </div>
-          </div>
-          <div class="checkbox">
-            <input id="profileFavorite" type="checkbox">
-            <label for="profileFavorite" style="margin:0">Favorite target</label>
           </div>
           <div class="grid-4">
             <button class="primary" id="saveProfile">Save target</button>
@@ -430,6 +400,72 @@ INDEX_HTML = """<!doctype html>
             <button class="secondary" id="loadProfileState">Load tmux state</button>
             <button class="danger" id="deleteProfile">Delete target</button>
           </div>
+          <details class="fold">
+            <summary>Advanced target options</summary>
+            <div class="fold-body">
+              <div class="grid-3">
+                <div>
+                  <label for="port">SSH port</label>
+                  <input id="port" type="number" value="22">
+                </div>
+                <div>
+                  <label for="profileGroup">Group</label>
+                  <input id="profileGroup" placeholder="work">
+                </div>
+                <div>
+                  <label for="profileTags">Tags</label>
+                  <input id="profileTags" placeholder="gpu, research">
+                </div>
+              </div>
+              <div class="grid-2">
+                <div>
+                  <label for="passwordRef">Password ref (vault)</label>
+                  <input id="passwordRef" placeholder="env:POCKETCLAW_OFFICE_PWD or file:~/.secrets/office.pwd">
+                </div>
+                <div>
+                  <label for="tmuxBin">tmux binary</label>
+                  <input id="tmuxBin" value="tmux">
+                </div>
+              </div>
+              <div>
+                <label for="profileDescription">Description</label>
+                <input id="profileDescription" placeholder="Research box with multiple Codex agents">
+              </div>
+              <div class="grid-3">
+                <div>
+                  <label for="hostKeyPolicy">Host key policy</label>
+                  <select id="hostKeyPolicy">
+                    <option value="">Inherit server default</option>
+                    <option value="strict">strict (verify known_hosts)</option>
+                    <option value="accept-new">accept-new (trust first use)</option>
+                    <option value="insecure">insecure (skip verification)</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="sshTimeout">SSH connect timeout (sec)</label>
+                  <input id="sshTimeout" type="number" min="0" placeholder="0 = inherit">
+                </div>
+                <div>
+                  <label for="sshCommandTimeout">SSH command timeout (sec)</label>
+                  <input id="sshCommandTimeout" type="number" min="0" placeholder="0 = inherit">
+                </div>
+              </div>
+              <div class="grid-2">
+                <div>
+                  <label for="sshRetries">SSH retries</label>
+                  <input id="sshRetries" type="number" min="0" placeholder="0 = no retry">
+                </div>
+                <div>
+                  <label for="sshRetryBackoffMs">Retry backoff (ms)</label>
+                  <input id="sshRetryBackoffMs" type="number" min="0" placeholder="250">
+                </div>
+              </div>
+              <div class="checkbox">
+                <input id="profileFavorite" type="checkbox">
+                <label for="profileFavorite" style="margin:0">Favorite target</label>
+              </div>
+            </div>
+          </details>
         </section>
       </div>
 
@@ -462,43 +498,49 @@ INDEX_HTML = """<!doctype html>
           </div>
         </section>
 
-        <section class="card grid">
-          <div class="section-title"><h2>Templates</h2><span class="hint">Global or target-specific command snippets</span></div>
-          <div class="grid-3">
-            <div>
-              <label for="templateSelect">Saved template</label>
-              <select id="templateSelect"></select>
+        <details class="card fold">
+          <summary>Command templates (optional)</summary>
+          <div class="fold-body">
+            <div class="hint">Global or target-specific command snippets</div>
+            <div class="grid-3">
+              <div>
+                <label for="templateSelect">Saved template</label>
+                <select id="templateSelect"></select>
+              </div>
+              <div>
+                <label for="templateName">Template name</label>
+                <input id="templateName" placeholder="Run tests + summarize">
+              </div>
+              <div>
+                <label for="templateScope">Scope</label>
+                <select id="templateScope">
+                  <option value="">Global</option>
+                  <option value="current">Current target</option>
+                </select>
+              </div>
             </div>
-            <div>
-              <label for="templateName">Template name</label>
-              <input id="templateName" placeholder="Run tests + summarize">
-            </div>
-            <div>
-              <label for="templateScope">Scope</label>
-              <select id="templateScope">
-                <option value="">Global</option>
-                <option value="current">Current target</option>
-              </select>
+            <div class="grid-3">
+              <button class="secondary" id="applyTemplate">Apply template</button>
+              <button class="secondary" id="saveTemplate">Save template</button>
+              <button class="danger" id="deleteTemplate">Delete template</button>
             </div>
           </div>
-          <div class="grid-3">
-            <button class="secondary" id="applyTemplate">Apply template</button>
-            <button class="secondary" id="saveTemplate">Save template</button>
-            <button class="danger" id="deleteTemplate">Delete template</button>
-          </div>
-        </section>
+        </details>
 
-        <section class="card grid">
-          <div class="section-title"><h2>Recent Commands</h2><span class="hint">Quickly reuse recent prompts</span></div>
-          <div class="grid-3">
-            <div>
-              <label for="historySelect">History</label>
-              <select id="historySelect"></select>
+        <details class="card fold">
+          <summary>Recent commands (optional)</summary>
+          <div class="fold-body">
+            <div class="hint">Quickly reuse recent prompts</div>
+            <div class="grid-3">
+              <div>
+                <label for="historySelect">History</label>
+                <select id="historySelect"></select>
+              </div>
+              <button class="secondary" id="applyHistory">Apply recent command</button>
+              <button class="danger" id="clearHistory">Clear history</button>
             </div>
-            <button class="secondary" id="applyHistory">Apply recent command</button>
-            <button class="danger" id="clearHistory">Clear history</button>
           </div>
-        </section>
+        </details>
       </div>
     </section>
 
